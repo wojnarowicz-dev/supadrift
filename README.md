@@ -660,6 +660,43 @@ This is also why the known-answer fixtures use real names from a private project
 and run only there. A test that runs everywhere tests only what its author
 imagined.
 
+## A gate that passed while checking nothing
+
+The same failure has a second instance in this repository, and this one is
+funnier, because the victim was the checker itself.
+
+`tools/bramka-readme.js` verifies that the README tells the truth: it extracts
+the fenced code blocks, runs the commands, compares every number against a real
+result, and reproduces the example finding with the real renderer. In the working
+tree it passed.
+
+Then it was run against a **fresh `git clone`** — and found **zero code blocks**.
+Git converts LF to CRLF on checkout on Windows, and the extractor's pattern
+expected a bare `\n` after the opening fence. Every check built on those blocks
+was now comparing an empty set: no options to verify, no JSON to parse, no
+commands to run.
+
+Some of those checks failed loudly, which is how it was caught. But that was
+luck, not design — a slightly more forgiving assertion and the gate would have
+printed a clean bill of health while verifying **nothing at all**. That is
+precisely the outcome supadrift itself is built to refuse: "clean" on input that
+was never read.
+
+The fix has two halves, and the second matters more than the first:
+
+1. Normalise line endings on read.
+2. **An empty set is a failure.** Every check that operates on a collection goes
+   through one helper that refuses a count of zero, and the count is printed in
+   the result — `opcje zgodne z --help (26)`, `odnosniki wzgledne (3)`. A zero is
+   visible to the eye instead of hiding behind an `OK`.
+
+With the normalisation deliberately removed again, the gate now reports
+`sprawdzono ZERO elementow` and exits 1. The bug can no longer pass as a pass.
+
+A check that can silently find nothing must fail, not succeed. It is the same
+rule as "fail loudly or pass, never quietly return zero" — and it turns out to be
+just as easy to break in the checker as in the thing being checked.
+
 ## Options
 
 ```

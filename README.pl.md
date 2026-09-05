@@ -639,6 +639,41 @@ To także powód, dla którego zestaw znanych odpowiedzi używa prawdziwych nazw
 z prywatnego projektu i uruchamia się tylko tam. Test, który chodzi wszędzie,
 sprawdza wyłącznie to, co jego autor sobie wyobraził.
 
+## Bramka, która przechodziła, nie sprawdzając nic
+
+Ta sama wada ma w tym repozytorium drugie wcielenie i to zabawniejsze, bo ofiarą
+padł sam sprawdzający.
+
+`tools/bramka-readme.js` weryfikuje, czy README mówi prawdę: wyciąga bloki kodu,
+uruchamia polecenia, porównuje każdą liczbę z rzeczywistym wynikiem i odtwarza
+przykład zgłoszenia prawdziwym rendererem. W drzewie roboczym przechodziła.
+
+Potem uruchomiono ją na **świeżym `git clone`** — i znalazła **zero bloków kodu**.
+Git przy checkoucie na Windows zamienia LF na CRLF, a wzorzec ekstraktora
+oczekiwał gołego `\n` po otwierającym ogrodzeniu. Każda kontrola oparta na tych
+blokach porównywała od tej chwili zbiór pusty: żadnych opcji do sprawdzenia,
+żadnego JSON-a do sparsowania, żadnych poleceń do uruchomienia.
+
+Część z nich padła głośno i tak to wyszło. Ale to był przypadek, nie projekt —
+przy odrobinę łagodniejszej asercji bramka wypisałaby czyste świadectwo, nie
+sprawdziwszy **niczego**. Czyli dokładnie ten wynik, którego supadrift ma
+odmawiać: „czysto" na wejściu, którego nikt nie przeczytał.
+
+Poprawka ma dwie połowy i druga jest ważniejsza:
+
+1. Normalizacja końców linii przy odczycie.
+2. **Pusty zbiór jest błędem.** Każda kontrola operująca na zbiorze przechodzi
+   przez jeden helper, który odmawia przy liczbie zero, a liczba stoi w wyniku —
+   `opcje zgodne z --help (26)`, `odnosniki wzgledne (3)`. Zero widać gołym
+   okiem, zamiast chować się za `OK`.
+
+Z celowo usuniętą normalizacją bramka wypisuje teraz `sprawdzono ZERO elementow`
+i kończy kodem 1. Błąd nie potrafi już udać sukcesu.
+
+Kontrola, która potrafi po cichu nic nie znaleźć, musi paść, a nie przejść. To ta
+sama zasada co „padnij głośno albo przejdź, nigdy nie zwracaj po cichu zera" —
+i okazuje się równie łatwa do złamania w sprawdzającym, co w sprawdzanym.
+
 ## Opcje
 
 ```

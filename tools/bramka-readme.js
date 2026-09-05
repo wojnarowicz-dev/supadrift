@@ -40,6 +40,28 @@ const wyniki = [];
 function zapisz(nazwa, ok, szczegol) {
   wyniki.push({ nazwa, ok, szczegol: szczegol || '' });
 }
+
+/**
+ * Sprawdzenie, ktore policzylo ZERO elementow, nie jest sprawdzeniem — jest
+ * cisza udajaca zgode. Tak wlasnie zachowala sie ta bramka na pierwszym
+ * swiezym klonie: git zamienil LF na CRLF, ekstraktor blokow nie znalazl nic,
+ * a czesc kontrol "przeszla", nie porownujac niczego z niczym.
+ *
+ * Dlatego kazda kontrola operujaca na zbiorze przechodzi przez ten helper:
+ * pusty zbior jest bledem, a liczba sprawdzonych elementow stoi w wyniku,
+ * zeby dalo sie ja zobaczyc golym okiem.
+ */
+function zapiszZbior(nazwa, liczba, ok, szczegol) {
+  if (liczba === 0) {
+    wyniki.push({
+      nazwa: nazwa + ' (0)',
+      ok: false,
+      szczegol: 'sprawdzono ZERO elementow — kontrola nie mialaby czego oblac',
+    });
+    return;
+  }
+  wyniki.push({ nazwa: nazwa + ' (' + liczba + ')', ok, szczegol: szczegol || '' });
+}
 function pominiete(nazwa, powod) {
   wyniki.push({ nazwa, pominiete: true, szczegol: powod });
 }
@@ -85,7 +107,7 @@ function sprawdzOdnosniki() {
       .map((m) => m[1])
       .filter((c) => !/^https?:|^#|^mailto:/.test(c));
     const brakujace = cele.filter((c) => !fs.existsSync(path.join(KORZEN, c.split('#')[0])));
-    zapisz(nazwa + ': odnosniki wzgledne (' + cele.length + ')',
+    zapiszZbior(nazwa + ': odnosniki wzgledne', cele.length,
       brakujace.length === 0,
       brakujace.length ? 'brak plikow: ' + brakujace.join(', ') : cele.join(', '));
   }
@@ -133,7 +155,7 @@ function sprawdzOpcje() {
 
     const wymysloneWReadme = [...zReadme].filter((o) => !zHelp.has(o));
     const nieudokumentowane = [...zHelp].filter((o) => !zReadme.has(o));
-    zapisz(nazwa + ': opcje zgodne z --help (' + zReadme.size + ')',
+    zapiszZbior(nazwa + ': opcje zgodne z --help', zReadme.size,
       wymysloneWReadme.length === 0 && nieudokumentowane.length === 0,
       (wymysloneWReadme.length ? 'w README, nie ma w kodzie: ' + wymysloneWReadme.join(' ') : '')
       + (nieudokumentowane.length ? '  nieudokumentowane: ' + nieudokumentowane.join(' ') : ''));
@@ -283,7 +305,7 @@ function sprawdzPrzykladZgloszenia() {
         'grant execute on function public.refund_quota(uuid, text) to service_role;',
       ];
       const brak = oczekiwane.filter((f) => !raport.includes(f));
-      zapisz('przyklad zgloszenia zgadza sie z prawdziwym wyjsciem',
+      zapiszZbior('przyklad zgloszenia zgadza sie z prawdziwym wyjsciem', oczekiwane.length,
         brak.length === 0,
         brak.length ? 'w wyjsciu brakuje: ' + brak.join(' | ') : oczekiwane.length + ' fraz zgodnych');
 
@@ -299,7 +321,7 @@ function sprawdzPrzykladZgloszenia() {
         }
         if (!cytowane.size) continue;
         const nieistniejace = [...cytowane].filter((h) => !raport.includes(h));
-        zapisz(nazwa + ': cytowane naglowki sekcji istnieja w wyjsciu (' + cytowane.size + ')',
+        zapiszZbior(nazwa + ': cytowane naglowki sekcji istnieja w wyjsciu', cytowane.size,
           nieistniejace.length === 0,
           nieistniejace.length
             ? 'kod NIE wypisuje: ' + nieistniejace.join(' | ')
@@ -373,7 +395,7 @@ function sprawdzPolecenia() {
         + ((r.stderr || '').split('\n').find((l) => l.includes('supadrift:')) || '').trim());
     }
   }
-  zapisz('polecenia z README uruchamiaja sie (' + uruchomione + ' z ' + unikalne.length + ')',
+  zapiszZbior('polecenia z README uruchamiaja sie (z ' + unikalne.length + ' znalezionych)', uruchomione,
     niepowodzenia.length === 0, niepowodzenia.join(' ; '));
 }
 
