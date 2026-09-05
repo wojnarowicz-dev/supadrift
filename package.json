@@ -1,0 +1,31 @@
+{
+  "name": "supadrift",
+  "version": "0.1.0",
+  "description": "Porownuje migracje SQL na dysku z rzeczywistym stanem bazy Supabase i wypisuje rozjazdy. Tylko odczyt.",
+  "license": "MIT",
+  "author": "Aleksander Wojnarowicz",
+  "bin": {
+    "supadrift": "bin/supadrift.js"
+  },
+  "main": "src/index.js",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "test": "node --test"
+  },
+  "dependencies": {
+    "pg": "^8.13.1"
+  },
+  "files": [
+    "bin",
+    "src",
+    "README.md",
+    "README.pl.md"
+  ],
+  "devDependencies": {
+    "ajv": "^8.20.0",
+    "ajv-draft-04": "^1.0.0",
+    "ajv-formats": "^3.0.1"
+  }
+}

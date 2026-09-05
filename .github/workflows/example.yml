@@ -1,0 +1,80 @@
+# ---------------------------------------------------------------------------
+# supadrift w CI — wynik trafia do zakladki Security, a nie do wyniku budowania
+# ---------------------------------------------------------------------------
+#
+# Skopiuj ten plik do swojego repozytorium jako .github/workflows/supadrift.yml
+# i ustaw jeden sekret: SUPADRIFT_DB_URL.
+#
+# CO TRZEBA WIEDZIEC, ZANIM TO WLACZYSZ
+#
+# 1. Ten przebieg LACZY SIE Z BAZA. Zaloz do tego osobna role tylko do odczytu —
+#    instrukcja jest w README, sekcja "Polaczenie", punkt 4. Wystarczy jej samo
+#    CONNECT, bo supadrift czyta wylacznie katalogi systemowe. NIE uzywaj do
+#    tego klucza serwisowego.
+#
+# 2. Sekret podajemy przez `env`, NIGDY przez argument. supadrift odmawia startu,
+#    gdy zobaczy adres polaczenia w argv — argument laduje w logu przebiegu,
+#    ktory w publicznym repozytorium widzi kazdy.
+#
+# 3. Zgloszenia NIE wywracaja budowania. Z `--sarif` kod wyjscia to zawsze 0;
+#    wyniki ida do zakladki Security i pojawiaja sie jako adnotacje w pull
+#    requeście. Blad krytyczny (nieodczytana migracja, brak polaczenia) nadal
+#    daje kod 2 i wtedy przebieg pada — bo "nie udalo sie sprawdzic" to co
+#    innego niz "sprawdzone i czysto".
+#
+# 4. `--hide-target` ukrywa host i identyfikator projektu w logu. W publicznym
+#    repozytorium zostaw to wlaczone.
+
+name: supadrift
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    # Rozjazd powstaje takze wtedy, gdy nikt nic nie wypycha — ktos poprawia
+    # cos recznie w panelu i repozytorium o tym nie wie. Dlatego takze z zegara.
+    - cron: '17 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write   # wymagane przez upload-sarif
+
+jobs:
+  drift:
+    runs-on: ubuntu-latest
+    # Nie uruchamiaj dla pull requestow z forkow: nie maja dostepu do sekretow,
+    # wiec przebieg i tak by padl na braku adresu polaczenia.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Instalacja supadrift
+        run: npm ci --omit=dev
+        working-directory: tools/supadrift   # dostosuj do miejsca w repozytorium
+
+      - name: Porownanie migracji z baza
+        env:
+          SUPADRIFT_DB_URL: ${{ secrets.SUPADRIFT_DB_URL }}
+        run: |
+          node tools/supadrift/bin/supadrift.js \
+            --migrations supabase/migrations \
+            --sarif supadrift.sarif \
+            --sarif-base . \
+            --hide-target \
+            --no-fix
+
+      - name: Wyslanie wyniku do zakladki Security
+        # `always()` celowo: jesli supadrift padl PO zapisaniu pliku, chcemy
+        # mimo to zobaczyc to, co zdazyl znalezc.
+        if: always() && hashFiles('supadrift.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: supadrift.sarif
+          category: supadrift
