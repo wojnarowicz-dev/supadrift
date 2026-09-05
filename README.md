@@ -551,18 +551,28 @@ names below are neutralised; **the fixtures in `test/` use real names from the
 author's private project and run only there** — which is why they were left
 alone. The shape of the check is identical.
 
+**A note on language.** The report itself is written in Polish. The blocks below
+are the tool's real output, verbatim — not a translation — with an English gloss
+underneath each one. `tools/bramka-readme.js` reproduces this scenario with the
+real code and fails if these blocks stop matching what the tool prints.
+
 State **before** the fix (`--as-of` pretends the later migrations do not exist
 yet):
 
 ```
 $ supadrift --via-cli --as-of 20240115130000 --only quota
 
-IN BOTH, BUT DIFFERENT  (1)
+JEST W OBU, ALE INACZEJ  (1)
   public.refund_quota(uuid, text)
-      service_role     the database has EXECUTE, the migrations have no such grant
-      last privilege change in migrations:
+      service_role     baza ma EXECUTE, w migracjach tego nadania NIE MA
+      ostatnia zmiana uprawnien w migracjach:
         20240115120000_refund_quota.sql:58 (revoke public, anon, authenticated)
 ```
+
+> *In both, but different (1) — `public.refund_quota(uuid, text)`: the database
+> has EXECUTE for `service_role`, the migrations have no such grant. Last
+> privilege change in migrations: `20240115120000_refund_quota.sql:58` (revoke
+> public, anon, authenticated).*
 
 It points at the file and the line. The healthy sibling `claim_quota`, which has
 the full `revoke` + `grant` pair, stays silent in the same run — a negative
@@ -572,14 +582,21 @@ In the same run the intent check speaks up and reconstructs, on its own, the lin
 a human added by hand two migrations later:
 
 ```
-NOTHING CAN CALL IT  (1)
-  public.refund_quota(uuid, text)     dead: in migrations
-      apart from the owner (postgres) nobody holds EXECUTE
-      revoke without a pair: 20240115120000_refund_quota.sql:58
-      no other SQL function calls it — the caller is outside the database
-      the missing half of the pair is most likely:
+NIE MA KTO WOLAC  (1)
+  public.refund_quota(uuid, text)     martwa: w migracjach
+      poza wlascicielem (postgres) EXECUTE nie ma nikt
+      revoke bez pary: 20240115120000_refund_quota.sql:58
+      zadna inna funkcja SQL jej nie wola — wolajacy jest poza baza
+      brakujaca polowa pary najpewniej brzmi:
         grant execute on function public.refund_quota(uuid, text) to service_role;
 ```
+
+> *Nothing can call it (1) — `public.refund_quota(uuid, text)`, dead: in
+> migrations. Apart from the owner (`postgres`) nobody holds EXECUTE. Revoke
+> without a pair: `20240115120000_refund_quota.sql:58`. No other SQL function
+> calls it — the caller is outside the database. The missing half of the pair is
+> most likely: `grant execute on function public.refund_quota(uuid, text) to
+> service_role;`*
 
 On the full set of migrations `refund_quota` does not report at all.
 

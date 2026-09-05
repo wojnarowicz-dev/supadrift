@@ -12,7 +12,8 @@
     "node": ">=18"
   },
   "scripts": {
-    "test": "node --test"
+    "test": "node --test",
+    "bramka": "node tools/bramka-readme.js"
   },
   "dependencies": {
     "pg": "^8.13.1"
