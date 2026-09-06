@@ -674,6 +674,56 @@ Kontrola, która potrafi po cichu nic nie znaleźć, musi paść, a nie przejś�
 sama zasada co „padnij głośno albo przejdź, nigdy nie zwracaj po cichu zera" —
 i okazuje się równie łatwa do złamania w sprawdzającym, co w sprawdzanym.
 
+## Jeszcze dwa razy to samo i reguła, która z tego wyszła
+
+Ostatnia praca w tym repozytorium była kosmetyczna: zmiana polskich
+identyfikatorów na angielskie przed publikacją. Komentarze i raport na ekran
+zostawały po polsku, zmieniały się wyłącznie nazwy. Mechanicznie, niskiego
+ryzyka, plik po pliku, z `npm test` po każdym. **156 na 156 przechodziło na
+każdym kroku.**
+
+I mimo to poszło źle dwa razy, a oba razy miały ten sam kształt co powyżej.
+
+**Zmiana nazw weszła w napisy wypisywane na ekran.** `liczba` → `count`
+zamieniło `'deklarowana liczba testow'` na `'deklarowana count testow'`. `padlo`
+→ `failed` zamieniło `'przeszlo 156, padlo 0'` na `'przeszlo 156, failed 0'`.
+Raport stał się półpolski, półangielski — dokładnie w miejscach, które człowiek
+czyta najpierw.
+
+Zestaw testów tego nie zauważył. Nie mógł: żaden test nie sprawdza akurat tych
+zdań, a *zachowanie* programu nie zmieniło się ani o jotę. Złapała to bramka
+README przy najbliższym uruchomieniu, bo bramka nie sprawdza zachowania — sprawdza
+powierzchnię, zestawiając to, co program wypisuje, z tym, co obiecuje
+dokumentacja.
+
+**Sama zmiana nazw czasem nie robiła nic.** Puszczona przez powłokę, podmiana
+gubiła granice słów we wzorcu. Jedno wywołanie zgłosiło `78 podmian`, drugie,
+identyczne co do budowy, podmieniło zero. A `npm test` przechodził w obu
+przypadkach — bo w tym nieudanym nic się nie zmieniło, a zestaw, który był
+zielony przed pustą operacją, jest zielony i po niej.
+
+I to jest pułapka warta nazwania. **Zielony zestaw testów mówi, że zachowanie się
+nie zepsuło. Nie mówi, że praca została wykonana.** Po przebudowie, która po cichu
+zawiodła, jedno od drugiego jest z zewnątrz nie do odróżnienia: te same testy, ten
+sam wynik, ta sama pewność — i zero pracy.
+
+Stąd reguła, wdrożona teraz w dwóch miejscach, a nie tylko opisana:
+
+> Każda operacja, która potrafi po cichu nic nie zrobić, musi zgłaszać **ile**
+> zrobiła, a zero traktować jako błąd.
+
+- `recordSet()` w `tools/readme-gate.js` odmawia przy liczbie zero i wypisuje
+  liczbę w wyniku.
+- Narzędzie do zmiany nazw wypisuje liczbę podmian na plik i kończy kodem
+  niezerowym, gdy suma wynosi zero.
+
+Trzy wcielenia w jednym repozytorium — bramka, która nic nie zweryfikowała,
+zmiana nazw, która nic nie zmieniła, i napisy, które popsuły się bez reakcji
+choćby jednego testu. Kształt za każdym razem identyczny: operacja melduje
+sukces, nie wykonawszy się. To ta sama wada, którą całe to narzędzie tropi
+w bazie danych — i okazuje się, że w oprzyrządowaniu, które ją ściga, nie jest
+o nią ani trochę trudniej.
+
 ## Opcje
 
 ```

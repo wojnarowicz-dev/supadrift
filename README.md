@@ -697,6 +697,54 @@ A check that can silently find nothing must fail, not succeed. It is the same
 rule as "fail loudly or pass, never quietly return zero" — and it turns out to be
 just as easy to break in the checker as in the thing being checked.
 
+## Twice more, and the rule that came out of it
+
+The last piece of work on this repository was cosmetic: renaming Polish
+identifiers to English before publication. Comments and the on-screen report
+stayed Polish; only names changed. Mechanical, low-risk, done file by file with
+`npm test` after each one. **156 of 156 passed at every single step.**
+
+It still went wrong twice, and both failures had the same shape as the one above.
+
+**The rename reached into the display strings.** `liczba` → `count` turned
+`'deklarowana liczba testow'` into `'deklarowana count testow'`. `padlo` →
+`failed` turned `'przeszlo 156, padlo 0'` into `'przeszlo 156, failed 0'`. The
+report was now half-Polish, half-English, in exactly the places a user reads
+first.
+
+The test suite never noticed. It could not: no test asserts on those particular
+sentences, and nothing about the program's *behaviour* had changed. The README
+gate caught it on the next run, because the gate does not check behaviour — it
+checks the surface, comparing what the program prints against what the
+documentation claims.
+
+**The rename itself sometimes did nothing at all.** Run through a shell, the
+substitution lost the word boundaries in its pattern. One invocation reported
+`78 podmian`; another, structurally identical, replaced zero. And `npm test`
+passed in both cases — because in the failing case nothing had changed, and a
+suite that was green before a no-op is green after it too.
+
+That is the trap worth naming. **A green test suite tells you that behaviour did
+not break. It cannot tell you that work was done.** After a refactor that
+silently failed, the two are indistinguishable from the outside: same tests, same
+result, same confidence — and no work.
+
+So the rule, now implemented in two places rather than merely described:
+
+> Any operation that can silently do nothing must report **how much** it did, and
+> treat zero as a failure.
+
+- `recordSet()` in `tools/readme-gate.js` refuses a count of zero and prints the
+  count in the result.
+- The rename tool prints substitutions per file and exits non-zero on a total of
+  zero.
+
+Three instances in one repository — the gate that verified nothing, the rename
+that changed nothing, the strings that broke without a single test noticing. The
+shape is identical each time: an operation reporting success without having
+operated. It is the same failure this whole tool exists to catch in a database,
+and it turns out to be no easier to avoid in the tooling that hunts it.
+
 ## Options
 
 ```
