@@ -2,12 +2,19 @@
 
 **English** · [Polski](README.pl.md)
 
-Compares your SQL migrations on disk against the actual state of a Supabase
-database and reports the drift.
+supadrift compares the **permissions** your SQL migrations describe with the
+permissions actually in force in a Supabase database: `grant` and `revoke` on
+functions, RLS policies, `search_path` on `SECURITY DEFINER` functions, and
+grants at table and column level.
 
-Nobody does this today. Supabase's Security Advisor looks **only at the
-database**. Tools like `pgrls` look **only at the files**. The gap between the
-two is a real class of bug, and nothing reports it:
+That is a different layer from schema diffing. **Atlas**, **pg-schema-diff** and
+**Liquibase** compare *structure* — tables, columns, indexes, constraints, views.
+supadrift compares *who is allowed to do what*. Different question, different
+answer — see [What supadrift does not do](#what-supadrift-does-not-do).
+
+Nobody checks that permission layer against the files. Supabase's Security
+Advisor looks **only at the database**. Tools like `pgrls` look **only at the
+files**. The gap between the two is a real class of bug, and nothing reports it:
 
 > Migration `20240115120000` had a `revoke` without a matching `grant execute`
 > for `service_role`. The function `refund_quota` had not executed once since
@@ -16,6 +23,32 @@ two is a real class of bug, and nothing reports it:
 > was dead. It took a second migration, found by hand, to fix it.
 
 ---
+
+## What supadrift does not do
+
+It does not compare columns, types, indexes or constraints. It will not tell you
+that a column changed type, that an index is missing, or that a check constraint
+drifted. For that there are mature tools — **Atlas**, **pg-schema-diff**,
+**Liquibase** — and this is not an attempt to replace any of them.
+
+They are **complementary, not competing**. Running both is the sensible setup: a
+schema differ to keep the structure honest, supadrift to keep the permission
+layer honest. They catch different bugs and neither substitutes for the other.
+
+The three real defects this tool found in its author's database make the split
+concrete:
+
+| finding | what it was | would a schema differ report it? |
+|---|---|---|
+| `revoke` with no matching `grant` | privilege drift: the database granted `EXECUTE` to `service_role`, the migrations did not | **no** — the object exists on both sides and is structurally identical |
+| a function present in the database, absent from every migration | a missing schema object | **yes** — that is exactly what they are for |
+| `SECURITY DEFINER` without `pg_temp` in `search_path` | not a drift at all: the files and the database agreed | **no** — a differ compares two sides, and here the two sides matched |
+
+The third row is the one worth pausing on. **Nothing that works by comparing two
+states can report it**, because there was nothing to compare: both sides said the
+same thing and both were wrong. That is why the intent checks exist alongside the
+drift checks — and it is the reason a permissions tool cannot be a feature bolted
+onto a schema differ.
 
 ## Connecting
 

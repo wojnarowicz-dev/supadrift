@@ -2,12 +2,20 @@
 
 [English](README.md) · **Polski**
 
-Porównuje migracje SQL na dysku z rzeczywistym stanem bazy Supabase i wypisuje
-rozjazdy.
+supadrift porównuje **uprawnienia**, które opisują Twoje migracje SQL, z tymi,
+które faktycznie obowiązują w bazie Supabase: `grant` i `revoke` na funkcjach,
+polityki RLS, `search_path` w funkcjach `SECURITY DEFINER` oraz nadania na
+tabelach i kolumnach.
 
-Dziś nikt tego nie robi. Security Advisor w Supabase patrzy **tylko na bazę**.
-Narzędzia w rodzaju `pgrls` patrzą **tylko na pliki**. Rozjazd między jednym
-a drugim jest realnym błędem i nie zgłasza go nic:
+To inna warstwa niż porównywanie schematu. **Atlas**, **pg-schema-diff**
+i **Liquibase** porównują *strukturę* — tabele, kolumny, indeksy, ograniczenia,
+widoki. supadrift porównuje *kto ma prawo co zrobić*. Inne pytanie, inna
+odpowiedź — patrz [Czego supadrift nie robi](#czego-supadrift-nie-robi).
+
+Tej warstwy uprawnień nie sprawdza dziś z plikami nikt. Security Advisor
+w Supabase patrzy **tylko na bazę**. Narzędzia w rodzaju `pgrls` patrzą **tylko
+na pliki**. Rozjazd między jednym a drugim jest realnym błędem i nie zgłasza go
+nic:
 
 > Migracja `20240115120000` miała `revoke` bez `grant execute` dla
 > `service_role`. Funkcja `refund_quota` nie wykonała się ani razu od
@@ -16,6 +24,32 @@ a drugim jest realnym błędem i nie zgłasza go nic:
 > martwa. Naprawiła to dopiero migracja `20240115140000`, znaleziona ręcznie.
 
 ---
+
+## Czego supadrift nie robi
+
+Nie porównuje kolumn, typów, indeksów ani ograniczeń. Nie powie Ci, że kolumna
+zmieniła typ, że brakuje indeksu albo że rozjechało się ograniczenie `check`. Do
+tego istnieją dojrzałe narzędzia — **Atlas**, **pg-schema-diff**, **Liquibase** —
+i to nie jest próba zastąpienia żadnego z nich.
+
+Są **komplementarne, nie konkurencyjne**. Używanie obu naraz jest sensownym
+ustawieniem: porównywarka schematu pilnuje struktury, supadrift pilnuje warstwy
+uprawnień. Łapią inne błędy i żadne nie zastępuje drugiego.
+
+Trzy prawdziwe wady, które to narzędzie znalazło w bazie swojego autora,
+pokazują ten podział na konkretach:
+
+| znalezisko | czym było | czy zgłosiłaby to porównywarka schematu? |
+|---|---|---|
+| `revoke` bez pary `grant` | rozjazd uprawnień: baza nadawała `EXECUTE` roli `service_role`, migracje nie | **nie** — obiekt istnieje po obu stronach i strukturalnie jest identyczny |
+| funkcja obecna w bazie, nieobecna w żadnej migracji | brakujący obiekt schematu | **tak** — dokładnie do tego służą |
+| `SECURITY DEFINER` bez `pg_temp` w `search_path` | w ogóle nie rozjazd: pliki i baza się zgadzały | **nie** — porównywarka zestawia dwie strony, a tu obie mówiły to samo |
+
+Trzeci wiersz jest tym, przy którym warto się zatrzymać. **Nic, co działa przez
+porównywanie dwóch stanów, nie może tego zgłosić**, bo nie było czego porównać:
+obie strony mówiły to samo i obie były w błędzie. Po to właśnie kontrole zamiaru
+stoją obok kontroli rozjazdu — i dlatego narzędzie do uprawnień nie może być
+funkcją doklejoną do porównywarki schematu.
 
 ## Połączenie
 
