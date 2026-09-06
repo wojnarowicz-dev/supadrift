@@ -87,8 +87,8 @@ test('ensure_rls jest w bazie i nie ma go w zadnej migracji', async () => {
 });
 
 test('allowManual przenosi go do osobnej listy, ale go nie ukrywa', async () => {
-  const NIC = { '000_nic.sql': '-- katalog bez deklaracji, ale nie pusty' };
-  const { ev } = await check(NIC, [], [evt()], ['ensure_rls']);
+  const NOTHING = { '000_nic.sql': '-- katalog bez deklaracji, ale nie pusty' };
+  const { ev } = await check(NOTHING, [], [evt()], ['ensure_rls']);
   assert.deepEqual(ev.onlyInDb, []);
   assert.equal(ev.manual.length, 1);
   assert.equal(ev.manual[0].text, 'event trigger ensure_rls');
@@ -306,7 +306,7 @@ test('drop i alter event trigger sa czytane', () => {
 // Supabase zglaszal szesc wlasnych wyzwalaczy platformy (pgrst_ddl_watch,
 // issue_pg_cron_access i podobne) jako "jest w bazie, nie ma w migracji".
 
-const PLATFORMOWE = [
+const PLATFORM_TRIGGERS = [
   ['pgrst_ddl_watch', 'extensions.pgrst_ddl_watch'],
   ['pgrst_drop_watch', 'extensions.pgrst_drop_watch'],
   ['issue_pg_cron_access', 'extensions.grant_pg_cron_access'],
@@ -318,24 +318,24 @@ const PLATFORMOWE = [
   function_schema: 'extensions', function_name: fn, tags: [],
 }));
 
-const NASZ = {
+const OURS = {
   name: 'rls_guard', event: 'ddl_command_end', enabled: 'O',
   function_schema: 'public', function_name: 'public.enforce_rls',
   tags: ['CREATE TABLE'],
 };
 
 test('wyzwalacze platformy Supabase sa poza zakresem schematu public', async () => {
-  const ae = await introspectEventTriggers(drv(PLATFORMOWE.concat([NASZ])), { schemas: ['public'] });
+  const ae = await introspectEventTriggers(drv(PLATFORM_TRIGGERS.concat([OURS])), { schemas: ['public'] });
   assert.deepEqual([...ae.keys()], ['rls_guard'],
     'szesc wyzwalaczy platformy wolajacych funkcje z extensions nie ma prawa sie zglosic');
 });
 
 test('ten sam wyzwalacz JEST widziany, gdy sprawdzamy schemat jego funkcji', async () => {
-  const ae = await introspectEventTriggers(drv(PLATFORMOWE), { schemas: ['extensions'] });
+  const ae = await introspectEventTriggers(drv(PLATFORM_TRIGGERS), { schemas: ['extensions'] });
   assert.equal(ae.size, 6, 'filtr ma zakresic, a nie ukrywac na stale');
 });
 
 test('zakres wyzwalaczy zdarzeniowych idzie za schematem funkcji, nie za nazwa', async () => {
-  const ae = await introspectEventTriggers(drv([NASZ]), { schemas: ['inny_schemat'] });
+  const ae = await introspectEventTriggers(drv([OURS]), { schemas: ['inny_schemat'] });
   assert.equal(ae.size, 0);
 });

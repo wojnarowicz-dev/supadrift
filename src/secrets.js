@@ -118,14 +118,14 @@ function applyDotenvSettings(opts = {}) {
   const cwd = opts.cwd || process.cwd();
   const envFile = opts.envFile || path.join(cwd, '.env');
   const dot = loadDotenv(envFile);
-  const przeniesione = [];
+  const applied = [];
   for (const k of SETTING_KEYS) {
     if (process.env[k] === undefined && dot.has(k)) {
       process.env[k] = dot.get(k);
-      przeniesione.push(k);
+      applied.push(k);
     }
   }
-  return przeniesione;
+  return applied;
 }
 
 // --- zaciemnianie -----------------------------------------------------------

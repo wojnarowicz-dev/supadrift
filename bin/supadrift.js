@@ -151,10 +151,10 @@ function parseArgs(argv) {
         // o bledzie idzie do logu CI, ktorego historia powloki nie obejmuje.
         // W tym miejscu nie ma jeszcze czego zarejestrowac w redact(), wiec
         // jedyna obrona jest nie wypisywac tego wcale.
-        const etykieta = a.startsWith('-')
+        const label = a.startsWith('-')
           ? a.split('=')[0]
-          : '(argument bez nazwy, tresc pominieta)';
-        throw exitError('nieznana opcja: ' + etykieta + '\n\n' + HELP, 2);
+          : '(argument bez nazwy, text pominieta)';
+        throw exitError('nieznana opcja: ' + label + '\n\n' + HELP, 2);
       }
     }
   }
@@ -190,9 +190,9 @@ function loadConfig(o) {
       // Komunikat V8 potrafi zawierac FRAGMENT PLIKU. Zostawiamy samo
       // polozenie bledu — plik konfiguracyjny nie ma prawa zawierac
       // poswiadczen, ale nie budujemy bezpieczenstwa na cudzej dyscyplinie.
-      const gdzie = /position (d+)/.exec(String(e.message));
+      const position = /position (d+)/.exec(String(e.message));
       throw exitError('nie udalo sie odczytac ' + file
-        + (gdzie ? ' (blad JSON na pozycji ' + gdzie[1] + ')' : ' (niepoprawny JSON)'), 2);
+        + (position ? ' (blad JSON na pozycji ' + position[1] + ')' : ' (niepoprawny JSON)'), 2);
     }
     for (const k of ['allowOwnerOnly', 'allowNoPolicy', 'allowSearchPath', 'allowManual', 'ignoreRoles']) {
       if (Array.isArray(cfg[k])) o[k] = o[k].concat(cfg[k].map(String));
@@ -409,7 +409,7 @@ async function main() {
 
   if (o.sarifFile) {
     const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "package.json"), "utf8"));
-    const { doc, ostrzezenia, zgloszen } = buildSarif(ctx, {
+    const { doc, warnings, findingCount } = buildSarif(ctx, {
       baseDir: path.resolve(o.sarifBase || process.cwd()),
       migrationsDir: o.migrationsDir,
       version: pkg.version,
@@ -417,9 +417,9 @@ async function main() {
     fs.writeFileSync(path.resolve(o.sarifFile), secrets.redact(JSON.stringify(doc, null, 2)), "utf8");
     if (!o.json) {
       process.stdout.write('SARIF zapisany do: ' + path.resolve(o.sarifFile)
-        + '  (' + zgloszen + ' zgloszen)\n');
+        + '  (' + findingCount + ' findingCount)\n');
     }
-    for (const ostrz of ostrzezenia) process.stderr.write('supadrift: ' + ostrz + '\n');
+    for (const ostrz of warnings) process.stderr.write('supadrift: ' + ostrz + '\n');
   }
 
   if (o.fixFile) {
@@ -440,15 +440,15 @@ async function main() {
 // obietnic — zdarzenie z gniazda, timer, blad w bibliotece. Node wypisalby
 // wtedy surowy obiekt bledu razem ze stosem i ominal redact(). Te dwa
 // handlery istnieja po to, zeby taka droga nie istniala.
-function awaria(rodzaj, err) {
-  const tresc = err && err.stack && process.env.SUPADRIFT_DEBUG === '1'
+function onFatalError(kind, err) {
+  const text = err && err.stack && process.env.SUPADRIFT_DEBUG === '1'
     ? err.stack
     : (err && err.message ? err.message : String(err));
-  process.stderr.write('\nsupadrift: ' + rodzaj + ': ' + secrets.redact(tresc) + '\n');
+  process.stderr.write('\nsupadrift: ' + kind + ': ' + secrets.redact(text) + '\n');
   process.exitCode = 2;
 }
-process.on('uncaughtException', (e) => awaria('blad nieobsluzony', e));
-process.on('unhandledRejection', (e) => awaria('odrzucona obietnica', e));
+process.on('uncaughtException', (e) => onFatalError('blad nieobsluzony', e));
+process.on('unhandledRejection', (e) => onFatalError('odrzucona obietnica', e));
 
 main()
   .then((code) => { process.exitCode = code; })

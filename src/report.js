@@ -48,16 +48,16 @@ function renderReport(ctx) {
   // Ta linia jest jedynym miejscem, z ktorego czytelnik wie, CO zostalo
   // sprawdzone. Jesli kontrola sie wykonala, ma tu byc wymieniona — inaczej
   // "czysto" znaczy mniej, niz sie wydaje.
-  const zakres = ['funkcje — EXECUTE (grant / revoke)'];
-  if (ctx.intent) zakres.push('kontrola zamiaru');
-  if (ctx.secdef) zakres.push('SECURITY DEFINER — search_path');
-  if (tbl) zakres.push('tabele — RLS i FORCE');
-  if (ctx.tableGrants) zakres.push('nadania na tabelach i kolumnach');
-  if (ctx.policyResult) zakres.push('polityki');
-  if (ctx.rlsIntent) zakres.push('RLS bez polityk');
-  if (ctx.triggerResult) zakres.push('wyzwalacze tabelowe i zdarzeniowe');
-  L.push('zakres   : ' + zakres.length + ' kontrol');
-  for (const z of zakres) L.push('           - ' + z);
+  const scopeLines = ['funkcje — EXECUTE (grant / revoke)'];
+  if (ctx.intent) scopeLines.push('kontrola zamiaru');
+  if (ctx.secdef) scopeLines.push('SECURITY DEFINER — search_path');
+  if (tbl) scopeLines.push('tabele — RLS i FORCE');
+  if (ctx.tableGrants) scopeLines.push('nadania na tabelach i kolumnach');
+  if (ctx.policyResult) scopeLines.push('polityki');
+  if (ctx.rlsIntent) scopeLines.push('RLS bez polityk');
+  if (ctx.triggerResult) scopeLines.push('wyzwalacze tabelowe i zdarzeniowe');
+  L.push('scopeLines   : ' + scopeLines.length + ' kontrol');
+  for (const z of scopeLines) L.push('           - ' + z);
   L.push('');
 
   const n = result.onlyInMigrations.length + result.onlyInDb.length + result.different.length;
@@ -129,7 +129,7 @@ function renderReport(ctx) {
       L.push('      ' + (d.declared
         ? 'utworzona w migracji ' + d.declaredIn + ', w bazie jej nie ma'
         : 'migracje nadaja jej uprawnienia, ale nigdzie jej nie tworza'));
-      if (d.roles.length) L.push('      wg migracji EXECUTE dla: ' + d.roles.join(', '));
+      if (d.roles.length) L.push('      byRule migracji EXECUTE dla: ' + d.roles.join(', '));
       L.push('');
     }
   });
@@ -212,7 +212,7 @@ function renderReport(ctx) {
       for (const d of tbl.onlyInMigrations) {
         L.push('  ' + d.text);
         L.push('      ' + (d.declared ? 'utworzona w migracji ' + d.declaredIn : 'migracje ja zmieniaja, ale nigdzie nie tworza')
-          + '; wg migracji RLS ' + onoff(d.rls) + ', FORCE ' + onoff(d.force));
+          + '; byRule migracji RLS ' + onoff(d.rls) + ', FORCE ' + onoff(d.force));
         L.push('');
       }
     });
@@ -403,24 +403,24 @@ function renderReport(ctx) {
   });
 
   // Indeks wedlug regul. Pochodzi z TEJ SAMEJ funkcji co wyjscie SARIF
-  // (src/sarif.js, zebrane()), wiec oba wyjscia nie moga sie rozjechac —
+  // (src/sarif.js, collectFindings()), wiec oba wyjscia nie moga sie rozjechac —
   // a identyfikator, ktory tu widzisz, jest tym, ktorego szukasz w zakladce
   // Security i ktory da sie wkleic w grep.
-  let indeks = [];
+  let findingIndex = [];
   try {
-    indeks = require('./sarif').zebrane(ctx);
-  } catch { indeks = []; }
-  if (indeks.length) {
-    L.push('ZGLOSZENIA WEDLUG REGUL  (' + indeks.length + ')');
+    findingIndex = require('./sarif').collectFindings(ctx);
+  } catch { findingIndex = []; }
+  if (findingIndex.length) {
+    L.push('ZGLOSZENIA WEDLUG REGUL  (' + findingIndex.length + ')');
     L.push(RULE);
-    const wg = new Map();
-    for (const z of indeks) {
-      if (!wg.has(z.ruleId)) wg.set(z.ruleId, []);
-      wg.get(z.ruleId).push(z);
+    const byRule = new Map();
+    for (const z of findingIndex) {
+      if (!byRule.has(z.ruleId)) byRule.set(z.ruleId, []);
+      byRule.get(z.ruleId).push(z);
     }
-    for (const [id, lista] of [...wg].sort()) {
-      L.push('  ' + id + '   (' + lista.length + ')');
-      for (const z of lista) {
+    for (const [id, list] of [...byRule].sort()) {
+      L.push('  ' + id + '   (' + list.length + ')');
+      for (const z of list) {
         L.push('      ' + (z.file ? z.file + ':' + z.line : '(brak pliku w migracjach)'));
       }
     }
@@ -491,7 +491,7 @@ function renderFix(ctx) {
 
   L.push('-- ' + '='.repeat(74));
   L.push('-- Migracja naprawcza wygenerowana przez supadrift');
-  L.push('-- ' + stamp + '   zakres: funkcje, EXECUTE');
+  L.push('-- ' + stamp + '   scopeLines: funkcje, EXECUTE');
   L.push('-- ' + '='.repeat(74));
   L.push('--');
   L.push('-- KIERUNEK. Ponizsze polecenia doprowadzaja BAZE do stanu, ktory opisuja');
@@ -707,7 +707,7 @@ function renderFix(ctx) {
     L.push('-- Dwie mozliwe prawdy, obie wygladaja w bazie tak samo:');
     L.push('--   a) tak ma byc — tabela wylacznie dla service_role. Wtedy dopisz ja');
     L.push('--      do supadrift.json:  "allowNoPolicy": ["' + f.text + '"]');
-    L.push('--   b) ktos zapomnial polityki. Wtedy napisz ja i dodaj migracja.');
+    L.push('--   b) ktos zapomnial polityki. Wtedy napisz ja i add migracja.');
     L.push('-- supadrift nie zgadnie, ktora z nich jest prawdziwa.');
     L.push('-- ' + '-'.repeat(70));
     L.push('');

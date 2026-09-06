@@ -25,14 +25,14 @@ const { introspect, introspectTables, introspectPolicies, introspectTriggers, in
 const { compare, compareTables, comparePolicies, compareTriggers, compareEventTriggers } = require('../src/compare');
 const { checkOwnerOnly, checkRlsWithoutPolicy } = require('../src/intent');
 const { checkSecurityDefiner } = require('../src/secdef');
-const { buildSarif, zebrane } = require('../src/sarif');
+const { buildSarif, collectFindings } = require('../src/sarif');
 const { RULES } = require('../src/rules');
 
 const SCHEMA = JSON.parse(
   fs.readFileSync(path.join(__dirname, 'fixtures', 'sarif-schema-2.1.0.json'), 'utf8')
 );
 
-function walidator() {
+function validator() {
   const ajv = new Ajv({ allErrors: true, strict: false });
   addFormats(ajv);
   return ajv.compile(SCHEMA);
@@ -41,7 +41,7 @@ function walidator() {
 const drv = (rows) => ({ query: async () => rows, close: async () => {} });
 
 // Migracje i baza dobrane tak, zeby odpalic MOZLIWIE WIELE regul naraz.
-const MIGRACJE = {
+const MIGRATIONS = {
   '20260101000000_start.sql': [
     'create table public.t (id uuid primary key, tajne text);',
     'alter table public.t enable row level security;',
@@ -74,9 +74,9 @@ const fnRow = (name, over) => Object.assign({
   acl: ['postgres=X/postgres'], acl_is_default: false,
 }, over);
 
-async function zbudujKontekst() {
+async function buildContext() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'supadrift-sarif-'));
-  for (const [n, b] of Object.entries(MIGRACJE)) fs.writeFileSync(path.join(dir, n), b, 'utf8');
+  for (const [n, b] of Object.entries(MIGRATIONS)) fs.writeFileSync(path.join(dir, n), b, 'utf8');
 
   const e = buildExpected(dir, { schemas: ['public'] });
 
@@ -128,36 +128,36 @@ async function zbudujKontekst() {
 // --- schemat -----------------------------------------------------------------
 
 test('dokument przechodzi oficjalny schemat SARIF 2.1.0', async () => {
-  const { ctx, dir } = await zbudujKontekst();
+  const { ctx, dir } = await buildContext();
   try {
-    const { doc, zgloszen } = buildSarif(ctx, {
+    const { doc, findingCount } = buildSarif(ctx, {
       baseDir: dir, migrationsDir: dir, version: '0.1.0',
     });
-    assert.ok(zgloszen > 0, 'test bez zgloszen nie sprawdzilby niczego');
+    assert.ok(findingCount > 0, 'test bez findingCount nie sprawdzilby niczego');
 
-    const sprawdz = walidator();
-    const ok = sprawdz(doc);
+    const validate = validator();
+    const ok = validate(doc);
     if (!ok) {
-      const opis = sprawdz.errors.slice(0, 8)
+      const description = validate.errors.slice(0, 8)
         .map((e) => '  ' + e.instancePath + ' ' + e.message).join('\n');
-      assert.fail('dokument NIE przechodzi schematu:\n' + opis);
+      assert.fail('dokument NIE przechodzi schematu:\n' + description);
     }
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
 
-test('walidator faktycznie odrzuca dokument niezgodny — kontrola negatywna', () => {
-  const sprawdz = walidator();
-  assert.equal(sprawdz({ version: '2.1.0' }), false, 'brak runs musi byc odrzucony');
-  assert.equal(sprawdz({ version: '1.0.0', runs: [] }), false, 'zla wersja musi byc odrzucona');
-  assert.equal(sprawdz({ version: '2.1.0', runs: [{}] }), false, 'run bez tool musi byc odrzucony');
+test('validator faktycznie odrzuca dokument niezgodny — kontrola negatywna', () => {
+  const validate = validator();
+  assert.equal(validate({ version: '2.1.0' }), false, 'brak runs musi byc odrzucony');
+  assert.equal(validate({ version: '1.0.0', runs: [] }), false, 'zla wersja musi byc odrzucona');
+  assert.equal(validate({ version: '2.1.0', runs: [{}] }), false, 'run bez tool musi byc odrzucony');
 });
 
 // --- wymagania GitHub code scanning ------------------------------------------
 
 test('wymagania GitHuba, ktorych schemat nie wymusza', async () => {
-  const { ctx, dir } = await zbudujKontekst();
+  const { ctx, dir } = await buildContext();
   try {
     const { doc } = buildSarif(ctx, { baseDir: dir, migrationsDir: dir, version: '0.1.0' });
     const run = doc.runs[0];
@@ -202,14 +202,14 @@ test('kazda regula w katalogu ma komplet opisow i unikalny identyfikator', () =>
 });
 
 test('obiekt bez pliku zrodlowego dostaje kotwice i mowi o tym wprost', async () => {
-  const { ctx, dir } = await zbudujKontekst();
+  const { ctx, dir } = await buildContext();
   try {
     const { doc } = buildSarif(ctx, { baseDir: dir, migrationsDir: dir, version: '0.1.0' });
-    const bezPliku = doc.runs[0].results.filter((r) => /nie ma jej w zadnej migracji|nie ma go w zadnej migracji/.test(r.message.text));
-    assert.ok(bezPliku.length > 0, 'scenariusz ma zawierac obiekty tylko z bazy');
-    for (const r of bezPliku) {
+    const withoutFile = doc.runs[0].results.filter((r) => /nie ma jej w zadnej migracji|nie ma go w zadnej migracji/.test(r.message.text));
+    assert.ok(withoutFile.length > 0, 'scenariusz ma zawierac obiekty tylko z bazy');
+    for (const r of withoutFile) {
       assert.match(r.message.text, /kotwica\s+wskazuje najnowsza migracje/,
-        'kotwica zastepcza musi byc nazwana wprost, zeby nikt nie czytal jej jako miejsca bledu');
+        'kotwica fallbackFile musi byc nazwana wprost, zeby nikt nie czytal jej jako miejsca bledu');
     }
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
@@ -217,24 +217,24 @@ test('obiekt bez pliku zrodlowego dostaje kotwice i mowi o tym wprost', async ()
 });
 
 test('zgloszenia w SARIF i w raporcie pochodza z jednej funkcji', async () => {
-  // zebrane() jest zrodlem dla obu wyjsc — dzieki temu nie moga sie rozjechac.
-  const { ctx, dir } = await zbudujKontekst();
+  // collectFindings() jest zrodlem dla obu wyjsc — dzieki temu nie moga sie rozjechac.
+  const { ctx, dir } = await buildContext();
   try {
-    const lista = zebrane(ctx);
+    const list = collectFindings(ctx);
     const { doc } = buildSarif(ctx, { baseDir: dir, migrationsDir: dir, version: '0.1.0' });
-    assert.equal(doc.runs[0].results.length, lista.length);
+    assert.equal(doc.runs[0].results.length, list.length);
     assert.deepEqual(
       doc.runs[0].results.map((r) => r.ruleId).sort(),
-      lista.map((z) => z.ruleId).sort()
+      list.map((z) => z.ruleId).sort()
     );
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
 
-test('odciski sa stabilne miedzy przebiegami i rozne dla roznych zgloszen', async () => {
-  const a = await zbudujKontekst();
-  const b = await zbudujKontekst();
+test('odciski sa stabilne miedzy przebiegami i rozne dla roznych findingCount', async () => {
+  const a = await buildContext();
+  const b = await buildContext();
   try {
     const dA = buildSarif(a.ctx, { baseDir: a.dir, migrationsDir: a.dir, version: '0.1.0' }).doc;
     const dB = buildSarif(b.ctx, { baseDir: b.dir, migrationsDir: b.dir, version: '0.1.0' }).doc;

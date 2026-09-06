@@ -553,7 +553,7 @@ alone. The shape of the check is identical.
 
 **A note on language.** The report itself is written in Polish. The blocks below
 are the tool's real output, verbatim — not a translation — with an English gloss
-underneath each one. `tools/bramka-readme.js` reproduces this scenario with the
+underneath each one. `tools/readme-gate.js` reproduces this scenario with the
 real code and fails if these blocks stop matching what the tool prints.
 
 State **before** the fix (`--as-of` pretends the later migrations do not exist
@@ -665,7 +665,7 @@ imagined.
 The same failure has a second instance in this repository, and this one is
 funnier, because the victim was the checker itself.
 
-`tools/bramka-readme.js` verifies that the README tells the truth: it extracts
+`tools/readme-gate.js` verifies that the README tells the truth: it extracts
 the fenced code blocks, runs the commands, compares every number against a real
 result, and reproduces the example finding with the real renderer. In the working
 tree it passed.

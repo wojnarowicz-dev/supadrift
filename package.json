@@ -13,7 +13,7 @@
   },
   "scripts": {
     "test": "node --test",
-    "bramka": "node tools/bramka-readme.js"
+    "gate": "node tools/readme-gate.js"
   },
   "dependencies": {
     "pg": "^8.13.1"

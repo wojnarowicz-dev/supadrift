@@ -81,7 +81,7 @@ function buildExpected(migrationsDir, opts = {}) {
     statements: 0, creates: 0, drops: 0, grants: 0, revokes: 0, tables: 0, policies: 0,
   };
 
-  const uszkodzenia = [];
+  const damaged = [];
 
   for (const file of files) {
     let sql;
@@ -90,14 +90,14 @@ function buildExpected(migrationsDir, opts = {}) {
     } catch (e) {
       // EACCES, EISDIR, plik zniknal w trakcie — kazdy z nich znaczy, ze tej
       // migracji NIE PRZECZYTALISMY. Pominiecie jej po cichu falszowaloby wynik.
-      uszkodzenia.push({ file, kind: 'nie-do-odczytania', text: e.code || e.message });
+      damaged.push({ file, kind: 'nie-do-odczytania', text: e.code || e.message });
       continue;
     }
 
     // Bajt zerowy w pliku SQL znaczy, ze to nie jest tekst, ktory ktos napisal:
     // uciety zapis, zly kodek, plik binarny pod nazwa .sql.
     if (sql.indexOf(String.fromCharCode(0)) !== -1) {
-      uszkodzenia.push({ file, kind: 'bajt-zerowy', text: 'plik zawiera bajt 0x00' });
+      damaged.push({ file, kind: 'bajt-zerowy', text: 'plik zawiera bajt 0x00' });
       continue;
     }
 
@@ -106,11 +106,11 @@ function buildExpected(migrationsDir, opts = {}) {
     try {
       stmts = splitStatements(sql, issues);
     } catch (e) {
-      uszkodzenia.push({ file, kind: 'blad-tokenizacji', text: e.message });
+      damaged.push({ file, kind: 'blad-tokenizacji', text: e.message });
       continue;
     }
     for (const it of issues) {
-      uszkodzenia.push({
+      damaged.push({
         file, kind: it.kind,
         text: it.line ? 'wiersz ' + it.line : 'na koncu pliku',
       });
@@ -124,11 +124,11 @@ function buildExpected(migrationsDir, opts = {}) {
     }
   }
 
-  if (uszkodzenia.length) {
+  if (damaged.length) {
     throw fatal(
-      'nie udalo sie wiarygodnie odczytac ' + uszkodzenia.length + ' '
-      + (uszkodzenia.length === 1 ? 'migracji' : 'migracji') + ':\n\n'
-      + uszkodzenia.map((u) => '  ' + u.file + '  [' + u.kind + '] ' + u.text).join('\n')
+      'nie udalo sie wiarygodnie odczytac ' + damaged.length + ' '
+      + (damaged.length === 1 ? 'migracji' : 'migracji') + ':\n\n'
+      + damaged.map((u) => '  ' + u.file + '  [' + u.kind + '] ' + u.text).join('\n')
       + '\n\nsupadrift NIE wypisze raportu na niepelnym obrazie. Zero rozjazdow\n'
       + 'przy nieprzeczytanej migracji znaczyloby "nie umiem sprawdzic", a nie\n'
       + '"czysto" — i tak wlasnie brzmi najgorszy mozliwy wynik tego narzedzia.'

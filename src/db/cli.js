@@ -22,7 +22,7 @@ const { redact, ENV_KEYS } = require('../secrets');
 // Podproces NIE POTRZEBUJE adresu bazy — chodzi wlasnym tokenem CLI. Dziedziczone
 // srodowisko oddaloby haslo obcej binarce, ktora nie ma z nim nic wspolnego,
 // i pokazaloby je w `ps` kazdemu uzytkownikowi maszyny. Wycinamy je.
-function czysteSrodowisko() {
+function cleanEnvironment() {
   const env = Object.assign({}, process.env);
   for (const k of ENV_KEYS.concat(['PGPASSWORD', 'PGPASSFILE', 'PGSERVICE'])) delete env[k];
   return env;
@@ -39,14 +39,14 @@ function run(args, cwd) {
     // bez powloki zwraca na nich ENOENT. Instalacja Supabase CLI przez npm
     // daje wlasnie `supabase.cmd`, wiec bez tego wyjatku ta sciezka nie
     // dzialala w ogole na Windows.
-    const przezPowloke = /\.(cmd|bat)$/i.test(bin);
+    const viaShell = /\.(cmd|bat)$/i.test(bin);
     const r = spawnSync(bin, args, {
       cwd,
-      env: czysteSrodowisko(),
+      env: cleanEnvironment(),
       encoding: 'utf8',
       maxBuffer: 64 * 1024 * 1024,
       windowsHide: true,
-      shell: przezPowloke,
+      shell: viaShell,
     });
     if (r.error && r.error.code === 'ENOENT') { last = r; continue; }
     return r;
@@ -120,4 +120,4 @@ function guessWorkdir(migrationsDir) {
   return null;
 }
 
-module.exports = { open, guessWorkdir, parseRows, czysteSrodowisko };
+module.exports = { open, guessWorkdir, parseRows, cleanEnvironment };

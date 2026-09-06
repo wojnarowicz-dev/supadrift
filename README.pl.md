@@ -644,7 +644,7 @@ sprawdza wyłącznie to, co jego autor sobie wyobraził.
 Ta sama wada ma w tym repozytorium drugie wcielenie i to zabawniejsze, bo ofiarą
 padł sam sprawdzający.
 
-`tools/bramka-readme.js` weryfikuje, czy README mówi prawdę: wyciąga bloki kodu,
+`tools/readme-gate.js` weryfikuje, czy README mówi prawdę: wyciąga bloki kodu,
 uruchamia polecenia, porównuje każdą liczbę z rzeczywistym wynikiem i odtwarza
 przykład zgłoszenia prawdziwym rendererem. W drzewie roboczym przechodziła.
 
