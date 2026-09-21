@@ -1,7 +1,17 @@
 {
   "name": "supadrift",
-  "version": "0.1.1",
-  "description": "Porownuje migracje SQL na dysku z rzeczywistym stanem bazy Supabase i wypisuje rozjazdy. Tylko odczyt.",
+  "version": "0.1.2",
+  "description": "Compares the permissions your SQL migrations describe with the permissions actually in force in a Supabase database. Read only.",
+  "keywords": [
+    "supabase",
+    "postgres",
+    "rls",
+    "migrations",
+    "drift",
+    "permissions",
+    "security",
+    "sql"
+  ],
   "license": "MIT",
   "author": "Aleksander Wojnarowicz",
   "bin": {
