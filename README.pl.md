@@ -630,7 +630,7 @@ zgodna i obie były w błędzie. Rozjazd wynosi tam **zero**, a kontrola zamiaru
 i tak mówi `martwa: w obu`. Ten scenariusz jest zapięty w
 `test/intent.test.js` jako pierwszy test i chodzi bez bazy.
 
-Wszystkie przebiegi: `npm test` — 156 testów, bez połączenia z czymkolwiek.
+Wszystkie przebiegi: `npm test` — 160 testów, bez połączenia z czymkolwiek.
 
 ## Sześć wyzwalaczy, których nie było w atrapie
 

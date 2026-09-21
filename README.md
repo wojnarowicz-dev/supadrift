@@ -652,7 +652,7 @@ agreed with the migration and both were wrong. Drift there is **zero**, and the
 intent check still says `dead: in both`. That scenario is the first test in
 `test/intent.test.js` and runs without a database.
 
-All of it: `npm test` — 156 tests, no connection to anything.
+All of it: `npm test` — 160 tests, no connection to anything.
 
 ## The six triggers that were not in the mock
 

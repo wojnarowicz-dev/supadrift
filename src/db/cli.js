@@ -96,7 +96,15 @@ async function open(opts = {}) {
 }
 
 function parseRows(stdout) {
-  const start = stdout.indexOf('{');
+  // Wczesniejszy z '{' i '['. CLI zwraca dzis obiekt {boundary, rows, warning},
+  // ale ma tez ksztalt golej tablicy wierszy. Szukanie samego '{' przeskakiwalo
+  // nawias otwierajacy tablicy i wchodzilo w srodek pierwszego wiersza —
+  // JSON.parse konczyl ten jeden obiekt i potykal sie o przecinek za nim.
+  const brace = stdout.indexOf('{');
+  const bracket = stdout.indexOf('[');
+  const start = brace === -1 ? bracket
+    : bracket === -1 ? brace
+      : Math.min(brace, bracket);
   if (start === -1) throw new Error('supabase db query nie zwrocilo JSON-a');
   let payload;
   try {

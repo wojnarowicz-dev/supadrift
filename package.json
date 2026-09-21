@@ -1,6 +1,6 @@
 {
   "name": "supadrift",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Porownuje migracje SQL na dysku z rzeczywistym stanem bazy Supabase i wypisuje rozjazdy. Tylko odczyt.",
   "license": "MIT",
   "author": "Aleksander Wojnarowicz",
