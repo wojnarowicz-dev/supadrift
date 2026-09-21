@@ -22,6 +22,17 @@ files**. The gap between the two is a real class of bug, and nothing reports it:
 > files were "correct" (the revoke sat where it was meant to), and the function
 > was dead. It took a second migration, found by hand, to fix it.
 
+## Run it without installing
+
+```
+npx supadrift --via-cli
+```
+
+Node 18 or newer, run from a Supabase project directory linked with the
+Supabase CLI — that path needs no password at all. Without the CLI, put the
+address in `SUPADRIFT_DB_URL` or in `.env`; it is never taken as an argument,
+because arguments end up in the shell history. supadrift only reads.
+
 ---
 
 ## What supadrift does not do
@@ -226,6 +237,9 @@ from point 4 is the better choice.
 ---
 
 ## Quick start
+
+From a clone. Installed from the registry, `pg` comes with the package and the
+command is `supadrift` — or `npx supadrift`, as at the top of this page.
 
 ```bash
 cd supadrift

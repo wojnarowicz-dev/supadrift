@@ -23,6 +23,17 @@ nic:
 > pliki były „poprawne" (revoke stoi tam, gdzie miał stać), a funkcja była
 > martwa. Naprawiła to dopiero migracja `20240115140000`, znaleziona ręcznie.
 
+## Uruchomienie bez instalowania
+
+```
+npx supadrift --via-cli
+```
+
+Node 18 albo nowszy, uruchamiane z katalogu projektu Supabase zalinkowanego
+w Supabase CLI — ta droga nie wymaga żadnego hasła. Bez CLI adres bazy wkładasz
+do `SUPADRIFT_DB_URL` albo do `.env`; nigdy nie przyjmujemy go argumentem, bo
+argumenty trafiają do historii powłoki. supadrift wyłącznie czyta.
+
 ---
 
 ## Czego supadrift nie robi
@@ -223,6 +234,9 @@ do odczytu z punktu 4.
 ---
 
 ## Szybki start
+
+Z klonu. Po instalacji z rejestru `pg` przychodzi razem z paczką, a polecenie
+to `supadrift` — albo `npx supadrift`, jak na górze tej strony.
 
 ```bash
 cd supadrift
