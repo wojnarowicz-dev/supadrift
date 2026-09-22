@@ -5,6 +5,17 @@ const fs = require('fs');
 const path = require('path');
 
 const secrets = require('../src/secrets');
+const { summaryOf, exitCodeFor } = require('../src/summary');
+
+// CO BYLO WIADOMO O PRZEBIEGU, ZANIM PADL. Opcje zyja wewnatrz main(), a
+// ostatnia siatka lapie blad na poziomie modulu — wiec przy --json sciezka
+// "nie dalo sie" nie wypisywala zadnego JSON-a. Maszyna dostawala kod 2 i
+// pusty strumien, czyli musiala zgadnac, czy narzedzie w ogole ruszylo.
+//
+// To jest dokladnie ten przypadek, na ktorym temu narzedziu zalezy najbardziej:
+// "nie dalem rady sprawdzic" ma wygladac inaczej niz "sprawdzone i czysto",
+// takze dla czytelnika, ktory czyta wylacznie plik.
+let lastOptions = null;
 const { buildExpected } = require('../src/expected');
 const {
   introspect, introspectTables, introspectPolicies, introspectColumnAcls, introspectDefaultAcl,
@@ -272,6 +283,7 @@ async function main() {
   secrets.refuseCredentialsInArgv(argv);
 
   const o = parseArgs(argv);
+  lastOptions = o;
   if (o.help) { process.stdout.write(HELP + '\n'); return 0; }
 
   o.migrationsDir = resolveMigrationsDir(o.migrationsDir);
@@ -366,10 +378,39 @@ async function main() {
     + (triggerResult ? total(triggerResult) : 0)
     + (eventTriggerResult ? total(eventTriggerResult) : 0);
 
+  // CZTERY STANY, JEDEN WIERSZ, BO BUDOWANIE CZYTA JEDNA LICZBE. Czlowiek
+  // przy terminalu odrozni "trzy rozjazdy" od "nie dalem rady polaczyc sie
+  // z baza". Zadanie w CI dostaje kod wyjscia i bez tego pola obie te rzeczy
+  // docieraja do niego identyczne.
+  //
+  // NIE DOTYCZY to liczba KONTROLI wylaczonych przelacznikiem, nie pozycji:
+  // --no-tables zdejmuje cala kontrole, a nie jakas liczbe znalezisk.
+  const switchedOff = [
+    intent, tableResult, policyResult, rlsIntent,
+    secdef, tableGrants, triggerResult, eventTriggerResult,
+  ].filter((x) => x === null || x === undefined).length;
+
+  // WYJASNIONE liczy TYLKO to, co jest policzone. --allow-manual przenosi
+  // wyzwalacze na liste manual i te widac. Pozostale trzy przelaczniki
+  // (--allow-owner-only, --allow-no-policy, --allow-search-path) odfiltrowuja
+  // swoje pozycje BEZ liczenia ich, wiec to, co zdjely, jest dla tego pola
+  // niewidoczne. To luka w tamtych trzech sciezkach, a nie liczba do
+  // zmyslenia; zapisana jako osobna praca.
+  const manualAside = (triggerResult && triggerResult.manual ? triggerResult.manual.length : 0)
+    + (eventTriggerResult && eventTriggerResult.manual ? eventTriggerResult.manual.length : 0);
+
+  const summary = summaryOf({
+    actionable: findings,
+    explained: manualAside + (expectedInfo.notes ? expectedInfo.notes.length : 0),
+    notApplicable: switchedOff,
+    couldNotBeRead: 0,        // doszlismy tutaj, wiec baza odpowiedziala
+  });
+
   const fixSql = renderFix(ctx);
 
   if (o.json) {
     process.stdout.write(secrets.redact(JSON.stringify({
+      summary,
       migrations: { dir: o.migrationsDir, files: expectedInfo.files.length, asOf: o.asOf },
       scope: 'functions:execute',
       schemas: o.schemas,
@@ -400,6 +441,10 @@ async function main() {
     }, null, 2)) + '\n');
   } else {
     process.stdout.write(secrets.redact(renderReport(ctx)) + '\n');
+    process.stdout.write('\npodsumowanie: doDecyzji=' + summary.actionable
+      + '  wyjasnione=' + summary.explained
+      + '  nieDotyczy=' + summary.notApplicable
+      + '  nieodczytane=' + summary.unreachable + '\n');
     if (o.showFix && findings > 0) {
       process.stdout.write('\nMIGRACJA NAPRAWCZA (do wklejenia — supadrift jej NIE stosuje)\n');
       process.stdout.write('-'.repeat(74) + '\n');
@@ -432,8 +477,7 @@ async function main() {
   // z narzedziem konczy sie jego wylaczeniem. Blad krytyczny to co innego:
   // ten nadal daje 2, bo "nie udalo sie sprawdzic" nie jest tym samym co
   // "sprawdzone i czysto" (patrz README, sekcja o odpornosci).
-  if (o.sarifFile) return 0;
-  return findings > 0 ? 1 : 0;
+  return exitCodeFor(summary, { sarif: !!o.sarifFile });
 }
 
 // Ostatnia siatka. Wszystko ponizej main() moze wybuchnac POZA lancuchem
@@ -454,6 +498,15 @@ main()
   .then((code) => { process.exitCode = code; })
   .catch((err) => {
     const code = err && err.supadriftExit ? err.supadriftExit : 2;
+    // Zanim zniknie: jesli ktos prosil o JSON, dostaje go takze tutaj — z
+    // czterema stanami, ktore mowia, ze nic nie zostalo odczytane.
+    if (lastOptions && lastOptions.json) {
+      const summary = summaryOf({ couldNotBeRead: 1 });
+      process.stdout.write(secrets.redact(JSON.stringify({
+        summary,
+        error: err && err.message ? err.message : String(err),
+      }, null, 2)) + '\n');
+    }
     process.stderr.write('\nsupadrift: ' + secrets.redact(err && err.message ? err.message : String(err)) + '\n');
     if (process.env.SUPADRIFT_DEBUG === '1' && err && err.stack) {
       process.stderr.write(secrets.redact(err.stack) + '\n');
