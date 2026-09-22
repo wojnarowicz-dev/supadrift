@@ -34,6 +34,7 @@
 // Reszta jest podejrzana i warta zdania w raporcie.
 
 const { OWNER } = require('./expected');
+const { withSetAside } = require('./summary');
 
 const TRIGGER_RETURNS = new Set(['trigger', 'event_trigger', 'pg_catalog.trigger']);
 
@@ -130,6 +131,10 @@ function suggestRole(fn, functions) {
  */
 function checkOwnerOnly(expected, actual, opts = {}) {
   const allow = new Set((opts.allow || []).map((s) => s.toLowerCase()));
+  // CO ZDJELA LISTA WYJATKOW. Bez tego zdjeta pozycja przestawala istniec
+  // i pole `explained` nie mialo jej z czego policzyc — patrz withSetAside
+  // w src/summary.js.
+  const setAside = [];
   const callersInMigrations = buildCallers(expected);
   const callersInDb = buildCallers(actual);
 
@@ -146,7 +151,10 @@ function checkOwnerOnly(expected, actual, opts = {}) {
     if (!deadInMigrations && !deadInDb) continue;
 
     if (isTriggerFn(e, a)) continue;
-    if (allowed(allow, ref)) continue;
+    if (allowed(allow, ref)) {
+      setAside.push({ key, text: ref.text, why: '--allow-owner-only' });
+      continue;
+    }
 
     const callers = dedupe([
       ...(callersInMigrations.get(ref.name) || []),
@@ -175,7 +183,7 @@ function checkOwnerOnly(expected, actual, opts = {}) {
   // Najgorszy przypadek pierwszy: martwa po obu stronach i nikt jej nie wola z SQL.
   const rank = (f) => (f.excusedByDefinerCaller ? 2 : 0) + (f.where === 'w obu' ? 0 : 1);
   findings.sort((x, y) => rank(x) - rank(y) || (x.key < y.key ? -1 : 1));
-  return findings;
+  return withSetAside(findings, setAside);
 }
 
 function allowed(allow, fn) {
@@ -219,6 +227,7 @@ function dedupe(list) {
 
 function checkRlsWithoutPolicy(expectedTables, actualTables, expectedPolicies, actualPolicies, opts = {}) {
   const allow = new Set((opts.allow || []).map((s) => s.toLowerCase()));
+  const setAside = [];                                 // jak wyzej
 
   const countBy = (policies) => {
     const n = new Map();
@@ -241,7 +250,10 @@ function checkRlsWithoutPolicy(expectedTables, actualTables, expectedPolicies, a
     if (!bareInMigrations && !bareInDb) continue;
 
     const short = key.includes('.') ? key.slice(key.indexOf('.') + 1) : key;
-    if (allow.has(key.toLowerCase()) || allow.has(short.toLowerCase())) continue;
+    if (allow.has(key.toLowerCase()) || allow.has(short.toLowerCase())) {
+      setAside.push({ key, text: key, why: '--allow-no-policy' });
+      continue;
+    }
 
     findings.push({
       key,
@@ -256,7 +268,7 @@ function checkRlsWithoutPolicy(expectedTables, actualTables, expectedPolicies, a
       declaredLine: e ? (e.createdLine || 1) : 1,
     });
   }
-  return findings;
+  return withSetAside(findings, setAside);
 }
 
 module.exports = {

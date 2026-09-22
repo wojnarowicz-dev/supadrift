@@ -19,13 +19,14 @@
 // why. What was missing is the FIELD, so a build can see the state as well as
 // the code.
 //
-// WHAT IS NOT COUNTED, AND SAID RATHER THAN GUESSED. `explained` here is the
-// triggers moved aside by --allow-manual plus the notes for things the
-// migrations do not model. The other three allow-flags — --allow-owner-only,
-// --allow-no-policy, --allow-search-path — filter their items out without
-// counting them, so what they removed is invisible to this field. That is a
-// gap in those three code paths, not a number to invent, and it is recorded
-// as its own piece of work.
+// WHAT `explained` COUNTS: the triggers moved aside by --allow-manual, the
+// notes for things the migrations do not model, and — since withSetAside at
+// the bottom of this file — the items the other three allow-lists remove.
+// Those three used to filter with a bare `continue`, so what they had swallowed
+// was invisible here. On the project this tool was built for that was six
+// tables, each with a paragraph of reasoning written next to it in
+// supadrift.json, and the field reported two. Now it reports eight, and the
+// run prints their names.
 
 /**
  * @param parts named by the caller, which is the only place that knows which
@@ -76,4 +77,34 @@ function exitCodeFor(summary, opts) {
   return summary.actionable > 0 ? 1 : 0;
 }
 
-module.exports = { summaryOf, exitCodeFor };
+/**
+ * Hangs the items an --allow-* list removed onto the array of findings.
+ *
+ * WHY THIS EXISTS. Three checks — owner-only, RLS-without-policy, SECURITY
+ * DEFINER search_path — dropped their allowed items with a bare `continue`.
+ * The item stopped existing: `explained` could not count it, and "there are no
+ * such cases" arrived looking exactly like "there are, somebody looked at them
+ * and set them aside". That distinction is the whole reason the summary field
+ * was added. The fourth flag, --allow-manual, had it right from the start; the
+ * other three said nothing next to the one that spoke, and nobody compared
+ * them.
+ *
+ * WHY NON-ENUMERABLE, and this is not decoration. These arrays go through
+ * JSON.stringify under --json and through assert.deepEqual in four test files.
+ * An enumerable property would change the shape of the JSON for everyone
+ * reading it by machine, in order to carry a number — a price this fix is not
+ * worth. Array.isArray, .length, .map and JSON.stringify all see an ordinary
+ * array; only a caller that asks for it by name sees the rest.
+ *
+ * It is a LIST, not a count. `explained` needs the number; a person asking
+ * "which ones did my allow-list swallow?" needs the items, and that is the
+ * question that comes straight after the number.
+ */
+function withSetAside(findings, setAside) {
+  Object.defineProperty(findings, 'setAside', {
+    value: setAside, enumerable: false, writable: false, configurable: true,
+  });
+  return findings;
+}
+
+module.exports = { summaryOf, exitCodeFor, withSetAside };

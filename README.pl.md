@@ -52,11 +52,16 @@ budowaniu. Więc rozjazdy dalej psują budowanie, dokładnie jak w 0.1.x.
 
 **Czego te cztery liczby nie liczą.** `notApplicable` liczy KONTROLE
 wyłączone przez `--no-tables` i podobne, nie pozycje — wyłączenie kontroli
-zdejmuje opinię, nie znalezisko. `explained` liczy wyzwalacze zdjęte przez
-`--allow-manual` plus to, czego migracje nie modelują; pozostałe trzy
-przełączniki `--allow-*` odfiltrowują swoje pozycje bez liczenia ich, więc
-to, co zdjęły, nie jest jeszcze w tym polu widoczne. To luka w tamtych trzech
-ścieżkach i jest nazwana, a nie zgadnięta.
+zdejmuje opinię, nie znalezisko. `explained` liczy to, co zdjęły **wszystkie
+cztery** listy `--allow-*`, plus to, czego migracje nie modelują.
+
+Pozostałe trzy listy zdejmowały swoje pozycje bez liczenia ich, więc „nie ma
+takich przypadków” i „są, ktoś je obejrzał i odłożył” docierały do budowania
+jako ta sama liczba. W projekcie, dla którego to narzędzie powstało, było to
+sześć tabel, każda z akapitem uzasadnienia wpisanym obok w `supadrift.json`,
+a pole mówiło dwa. Teraz mówi osiem — i przebieg wypisuje ich nazwy, na
+ekranie i pod `setAside` w JSON-ie, bo liczba, za którą nic nie stoi, jest
+prośbą o zaufanie.
 
 ## Uruchomienie bez instalowania
 
@@ -665,7 +670,7 @@ zgodna i obie były w błędzie. Rozjazd wynosi tam **zero**, a kontrola zamiaru
 i tak mówi `martwa: w obu`. Ten scenariusz jest zapięty w
 `test/intent.test.js` jako pierwszy test i chodzi bez bazy.
 
-Wszystkie przebiegi: `npm test` — 160 testów, bez połączenia z czymkolwiek.
+Wszystkie przebiegi: `npm test` — 176 testów, bez połączenia z czymkolwiek.
 
 ## Sześć wyzwalaczy, których nie było w atrapie
 

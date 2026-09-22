@@ -52,11 +52,16 @@ a build today. So findings still fail the build, exactly as in 0.1.x.
 
 **What the four numbers do and do not count.** `notApplicable` counts CHECKS
 switched off with `--no-tables` and friends, not items — switching off a check
-removes an opinion, not a finding. `explained` counts the triggers set aside
-by `--allow-manual` plus what the migrations do not model; the other three
-allow-flags filter their items out without counting them, so what they removed
-is not visible in this field yet. That is a gap in those three code paths and
-it is named rather than guessed at.
+removes an opinion, not a finding. `explained` counts what **all four**
+`--allow-*` lists set aside, plus what the migrations do not model.
+
+The other three lists used to drop their items without counting them, so "there
+are no such cases" and "there are, somebody looked at them and set them aside"
+reached a build as the same number. On the project this tool was built for that
+was six tables, each with a paragraph of reasoning written beside it in
+`supadrift.json`, and the field reported two. It now reports eight — and the run
+prints their names, on screen and under `setAside` in the JSON, because a number
+with nothing behind it is a request to be trusted.
 
 ## Run it without installing
 
@@ -688,7 +693,7 @@ agreed with the migration and both were wrong. Drift there is **zero**, and the
 intent check still says `dead: in both`. That scenario is the first test in
 `test/intent.test.js` and runs without a database.
 
-All of it: `npm test` — 160 tests, no connection to anything.
+All of it: `npm test` — 176 tests, no connection to anything.
 
 ## The six triggers that were not in the mock
 

@@ -68,6 +68,8 @@ const HELP = [
   '                          jaki ma; mozna powtorzyc',
   '  --allow-no-policy <t>   ta tabela MA miec RLS bez polityk (tylko service_role),',
   '                          mozna powtorzyc',
+  '                          Te trzy listy nie chowaja pozycji: co zdjely, jest',
+  '                          policzone w "wyjasnione" i wypisane z nazwy.',
   '  --sarif <plik>          zapisz wynik jako SARIF 2.1.0 (podzbior dla GitHub',
   '                          code scanning). Z ta opcja kod wyjscia to 0 nawet',
   '                          przy zgloszeniach — wyniki ida do zakladki Security,',
@@ -390,18 +392,22 @@ async function main() {
     secdef, tableGrants, triggerResult, eventTriggerResult,
   ].filter((x) => x === null || x === undefined).length;
 
-  // WYJASNIONE liczy TYLKO to, co jest policzone. --allow-manual przenosi
-  // wyzwalacze na liste manual i te widac. Pozostale trzy przelaczniki
-  // (--allow-owner-only, --allow-no-policy, --allow-search-path) odfiltrowuja
-  // swoje pozycje BEZ liczenia ich, wiec to, co zdjely, jest dla tego pola
-  // niewidoczne. To luka w tamtych trzech sciezkach, a nie liczba do
-  // zmyslenia; zapisana jako osobna praca.
+  // WYJASNIONE liczy TERAZ WSZYSTKIE CZTERY PRZELACZNIKI --allow-*.
+  // --allow-manual robil to od poczatku: przenosi wyzwalacze na liste `manual`,
+  // ktora widac. Pozostale trzy odfiltrowywaly swoje pozycje przez `continue`
+  // i NIE liczyly ich, wiec "nie ma takich przypadkow" docieralo tu identyczne
+  // jak "sa, ktos je obejrzal i odlozyl" — a to jest ta jedna roznica, dla
+  // ktorej to pole powstalo. Teraz kazda z tych trzech kontroli oddaje liste
+  // zdjetych pozycji (setAside), i to ona jest liczona; nadal nie jest to
+  // liczba zmyslona, tylko pozycje, ktore naprawde byly kandydatami.
   const manualAside = (triggerResult && triggerResult.manual ? triggerResult.manual.length : 0)
     + (eventTriggerResult && eventTriggerResult.manual ? eventTriggerResult.manual.length : 0);
+  const allowAside = [intent, rlsIntent, secdef]
+    .reduce((n, x) => n + (x && x.setAside ? x.setAside.length : 0), 0);
 
   const summary = summaryOf({
     actionable: findings,
-    explained: manualAside + (expectedInfo.notes ? expectedInfo.notes.length : 0),
+    explained: manualAside + allowAside + (expectedInfo.notes ? expectedInfo.notes.length : 0),
     notApplicable: switchedOff,
     couldNotBeRead: 0,        // doszlismy tutaj, wiec baza odpowiedziala
   });
@@ -438,6 +444,13 @@ async function main() {
       triggers: triggerResult,
       eventTriggers: eventTriggerResult,
       unmodelled: expectedInfo.notes,
+      // TO SAMO, CO WIDZI CZLOWIEK PRZY TERMINALU. `explained` rosnie o to,
+      // co zdjely listy --allow-*, a czytajacy maszynowo dostawalby sama
+      // liczbe: wlasciwosc `setAside` jest NIEPRZELICZALNA, zeby nie zmienic
+      // ksztaltu trzech istniejacych tablic, wiec JSON.stringify jej nie
+      // widzi i trzeba ja podac osobno. Liczba bez nazw jest prosba o zaufanie.
+      setAside: [intent, rlsIntent, secdef]
+        .flatMap((x) => (x && x.setAside ? x.setAside : [])),
     }, null, 2)) + '\n');
   } else {
     process.stdout.write(secrets.redact(renderReport(ctx)) + '\n');
@@ -445,6 +458,18 @@ async function main() {
       + '  wyjasnione=' + summary.explained
       + '  nieDotyczy=' + summary.notApplicable
       + '  nieodczytane=' + summary.unreachable + '\n');
+    // LICZBA, ZA KTORA STOJA NAZWY. `wyjasnione` rosnie teraz o to, co zdjely
+    // listy --allow-*, i liczba bez nazw jest prosba o zaufanie. Kto wpisal
+    // wyjatek pol roku temu, ten musi miec jak zobaczyc, co on dzisiaj ucisza.
+    if (allowAside > 0) {
+      const co = [intent, rlsIntent, secdef]
+        .flatMap((x) => (x && x.setAside ? x.setAside : []));
+      process.stdout.write('   odlozone przez listy wyjatkow: ' + allowAside + '\n');
+      for (const s of co.slice(0, 10)) {
+        process.stdout.write('     ' + s.text + '   (' + s.why + ')\n');
+      }
+      if (co.length > 10) process.stdout.write('     ... i ' + (co.length - 10) + ' wiecej\n');
+    }
     if (o.showFix && findings > 0) {
       process.stdout.write('\nMIGRACJA NAPRAWCZA (do wklejenia — supadrift jej NIE stosuje)\n');
       process.stdout.write('-'.repeat(74) + '\n');

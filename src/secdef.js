@@ -34,6 +34,8 @@
 // wolajacego, wiec podstawienie nie daje napastnikowi niczego, czego by juz
 // nie mial.
 
+const { withSetAside } = require('./summary');
+
 const HYGIENE = {
   BRAK: 'brak-search-path',
   BEZ_PG_TEMP: 'bez-pg_temp',
@@ -104,6 +106,8 @@ function plural(n, one, few, many) {
 function checkSecurityDefiner(expected, actual, opts = {}) {
   const allow = new Set((opts.allow || []).map((s) => s.toLowerCase()));
   const findings = [];
+  // CO ZDJELA LISTA WYJATKOW — patrz withSetAside w src/summary.js.
+  const setAside = [];
 
   for (const key of [...new Set([...expected.keys(), ...actual.keys()])].sort()) {
     const e = expected.get(key);
@@ -120,7 +124,10 @@ function checkSecurityDefiner(expected, actual, opts = {}) {
 
     if (allow.has(ref.key.toLowerCase())
       || allow.has((ref.schema + '.' + ref.name).toLowerCase())
-      || allow.has(ref.name.toLowerCase())) continue;
+      || allow.has(ref.name.toLowerCase())) {
+      setAside.push({ key, text: ref.text, why: '--allow-search-path' });
+      continue;
+    }
 
     const base = a && secdefInDb ? a.searchPath : (e ? e.searchPath : null);
     const suggestion = suggestFor(base, majorityPattern(expected, key) || majorityPattern(actual, key));
@@ -143,7 +150,7 @@ function checkSecurityDefiner(expected, actual, opts = {}) {
   // Brak ustawienia jest gorszy niz niepelne, wiec idzie pierwszy.
   const rank = (f) => (f.kind === HYGIENE.BRAK ? 0 : f.kind === HYGIENE.BEZ_PG_TEMP ? 1 : 2);
   findings.sort((x, y) => rank(x) - rank(y) || (x.key < y.key ? -1 : 1));
-  return findings;
+  return withSetAside(findings, setAside);
 }
 
 module.exports = { checkSecurityDefiner, classify, suggestFor, majorityPattern, HYGIENE, fmt };
