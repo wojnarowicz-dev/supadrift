@@ -6,6 +6,7 @@ const path = require('path');
 
 const secrets = require('../src/secrets');
 const { summaryOf, exitCodeFor } = require('../src/summary');
+const { switchedOff } = require('../src/checks');
 
 // CO BYLO WIADOMO O PRZEBIEGU, ZANIM PADL. Opcje zyja wewnatrz main(), a
 // ostatnia siatka lapie blad na poziomie modulu — wiec przy --json sciezka
@@ -387,10 +388,16 @@ async function main() {
   //
   // NIE DOTYCZY to liczba KONTROLI wylaczonych przelacznikiem, nie pozycji:
   // --no-tables zdejmuje cala kontrole, a nie jakas liczbe znalezisk.
-  const switchedOff = [
-    intent, tableResult, policyResult, rlsIntent,
-    secdef, tableGrants, triggerResult, eventTriggerResult,
-  ].filter((x) => x === null || x === undefined).length;
+  //
+  // LISTA JEST W src/checks.js, NIE TUTAJ. Stala tu wypisana recznie osmioma
+  // nazwami zmiennych i byla TRZECIA reczna kopia tego samego zbioru — obok
+  // tabeli "Scope" na obu stronach i przelacznikow --no-* w pomocy. Kontrola
+  // dopisana bez dopisania jej tutaj nie podnosila tej liczby i nikt by sie
+  // o tym nie dowiedzial.
+  const offOf = switchedOff({
+    result, intent, secdef, tableResult, tableGrants,
+    policyResult, triggerResult, eventTriggerResult, rlsIntent,
+  });
 
   // WYJASNIONE liczy TERAZ WSZYSTKIE CZTERY PRZELACZNIKI --allow-*.
   // --allow-manual robil to od poczatku: przenosi wyzwalacze na liste `manual`,
@@ -408,7 +415,7 @@ async function main() {
   const summary = summaryOf({
     actionable: findings,
     explained: manualAside + allowAside + (expectedInfo.notes ? expectedInfo.notes.length : 0),
-    notApplicable: switchedOff,
+    notApplicable: offOf,
     couldNotBeRead: 0,        // doszlismy tutaj, wiec baza odpowiedziala
   });
 
