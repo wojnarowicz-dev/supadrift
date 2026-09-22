@@ -22,6 +22,42 @@ files**. The gap between the two is a real class of bug, and nothing reports it:
 > files were "correct" (the revoke sat where it was meant to), and the function
 > was dead. It took a second migration, found by hand, to fix it.
 
+## What changed in 0.2.0
+
+**If you run this in CI, read this line.** The exit codes have NOT moved, and
+that is deliberate: `2` already meant "I could not check" and `1` already
+meant "there are findings". What is new is that a machine can now see the same
+thing without parsing prose — and that **`--json` finally writes a body when
+the run fails**. It used to produce an exit code and an empty stream, so a
+reader of the file alone could not tell "could not check" from "did not
+start".
+
+```json
+{
+  "summary": { "actionable": 0, "explained": 0, "notApplicable": 0,
+               "unreachable": 1,
+               "unreachableIs": { "aQuestionForAPerson": 0, "couldNotBeRead": 1 } },
+  "error": "..."
+}
+```
+
+Every successful run carries the same four numbers, on screen and in the JSON.
+
+**`1` is state-based here, and that is a departure from the sibling tools.**
+They report what is NEW, because each keeps a snapshot of the previous run.
+This one keeps none — it compares migrations against a live database, and
+there is nothing to diff against. Making it differential would mean inventing
+a baseline; making it quiet by default would remove the only thing it can tell
+a build today. So findings still fail the build, exactly as in 0.1.x.
+
+**What the four numbers do and do not count.** `notApplicable` counts CHECKS
+switched off with `--no-tables` and friends, not items — switching off a check
+removes an opinion, not a finding. `explained` counts the triggers set aside
+by `--allow-manual` plus what the migrations do not model; the other three
+allow-flags filter their items out without counting them, so what they removed
+is not visible in this field yet. That is a gap in those three code paths and
+it is named rather than guessed at.
+
 ## Run it without installing
 
 ```

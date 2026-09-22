@@ -23,6 +23,41 @@ nic:
 > pliki były „poprawne" (revoke stoi tam, gdzie miał stać), a funkcja była
 > martwa. Naprawiła to dopiero migracja `20240115140000`, znaleziona ręcznie.
 
+## Co się zmieniło w 0.2.0
+
+**Jeśli uruchamiasz to w CI, przeczytaj ten wiersz.** Kody wyjścia **nie**
+zmieniły znaczenia i jest to celowe: `2` już znaczyło „nie dałem rady
+sprawdzić", a `1` — „są rozjazdy". Nowe jest to, że maszyna widzi ten sam
+stan bez czytania prozy — oraz że **`--json` wreszcie wypisuje treść, gdy
+przebieg pada**. Wcześniej dawał kod wyjścia i pusty strumień, więc czytelnik
+samego pliku nie odróżniał „nie dało się sprawdzić" od „w ogóle nie ruszyło".
+
+```json
+{
+  "summary": { "actionable": 0, "explained": 0, "notApplicable": 0,
+               "unreachable": 1,
+               "unreachableIs": { "aQuestionForAPerson": 0, "couldNotBeRead": 1 } },
+  "error": "..."
+}
+```
+
+Każdy udany przebieg niesie te same cztery liczby, na ekranie i w JSON-ie.
+
+**`1` jest tu stanowe i to jest odstępstwo od pozostałych narzędzi.**
+Tamte zgłaszają to, co NOWE, bo każde trzyma migawkę poprzedniego przebiegu.
+To nie trzyma żadnej — porównuje migracje z żywą bazą i nie ma z czym
+różnicować. Zrobienie go różnicowym oznaczałoby zmyślenie bazy porównań;
+uciszenie go domyślnie odebrałoby mu jedyne, co dziś umie powiedzieć
+budowaniu. Więc rozjazdy dalej psują budowanie, dokładnie jak w 0.1.x.
+
+**Czego te cztery liczby nie liczą.** `notApplicable` liczy KONTROLE
+wyłączone przez `--no-tables` i podobne, nie pozycje — wyłączenie kontroli
+zdejmuje opinię, nie znalezisko. `explained` liczy wyzwalacze zdjęte przez
+`--allow-manual` plus to, czego migracje nie modelują; pozostałe trzy
+przełączniki `--allow-*` odfiltrowują swoje pozycje bez liczenia ich, więc
+to, co zdjęły, nie jest jeszcze w tym polu widoczne. To luka w tamtych trzech
+ścieżkach i jest nazwana, a nie zgadnięta.
+
 ## Uruchomienie bez instalowania
 
 ```
