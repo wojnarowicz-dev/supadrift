@@ -22,6 +22,27 @@ files**. The gap between the two is a real class of bug, and nothing reports it:
 > files were "correct" (the revoke sat where it was meant to), and the function
 > was dead. It took a second migration, found by hand, to fix it.
 
+## What changed in 0.2.1
+
+**Nothing about the exit codes, and nothing about what is reported.** One
+number in the summary was under-reporting, and two lists that nothing held
+together now are held.
+
+* **`explained` counts all four `--allow-*` lists.** Three of them removed
+  their items without counting them, so "there are no such cases" and "there
+  are, somebody looked at them and set them aside" reached a build as the same
+  number. On the database this tool was built for that was six tables, each
+  with a paragraph of reasoning written beside it in `supadrift.json`, and the
+  field reported two. It now reports eight, and the run prints their names — on
+  screen and under `setAside` in the JSON — because a number with nothing
+  behind it is a request to be trusted.
+* **The set of checks lives in one place.** It was written out by hand in the
+  Scope table on both pages, in the `--no-*` switches of the help, and in an
+  anonymous array of eight variable names that counted how many checks a run
+  had no opinion on. A test now holds all three to `src/checks.js`, in both
+  directions: a check with no row on the page is red, and a switch with no
+  check behind it is red.
+
 ## What changed in 0.2.0
 
 **If you run this in CI, read this line.** The exit codes have NOT moved, and

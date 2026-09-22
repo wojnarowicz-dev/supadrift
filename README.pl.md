@@ -23,6 +23,26 @@ nic:
 > pliki były „poprawne" (revoke stoi tam, gdzie miał stać), a funkcja była
 > martwa. Naprawiła to dopiero migracja `20240115140000`, znaleziona ręcznie.
 
+## Co się zmieniło w 0.2.1
+
+**Nic w kodach wyjścia i nic w tym, co jest zgłaszane.** Jedna liczba
+w podsumowaniu zaniżała, a dwie listy, których nic ze sobą nie zestawiało,
+są teraz zestawiane.
+
+* **`explained` liczy wszystkie cztery listy `--allow-*`.** Trzy z nich
+  zdejmowały swoje pozycje bez liczenia ich, więc „nie ma takich przypadków"
+  i „są, ktoś je obejrzał i odłożył" docierały do budowania jako ta sama
+  liczba. W bazie, dla której to narzędzie powstało, było to sześć tabel,
+  każda z akapitem uzasadnienia wpisanym obok w `supadrift.json`, a pole
+  mówiło dwa. Teraz mówi osiem — i przebieg wypisuje ich nazwy, na ekranie
+  i pod `setAside` w JSON-ie, bo liczba, za którą nic nie stoi, jest prośbą
+  o zaufanie.
+* **Zbiór kontroli leży w jednym miejscu.** Był wypisany ręcznie w tabeli
+  „Zakres" na obu stronach, w przełącznikach `--no-*` w pomocy i w bezimiennej
+  tablicy ośmiu nazw zmiennych, która liczyła, ile kontroli wyłączono. Test
+  zestawia teraz wszystkie trzy z `src/checks.js`, w obie strony: kontrola bez
+  wiersza na stronie jest czerwona i przełącznik bez kontroli za nim też.
+
 ## Co się zmieniło w 0.2.0
 
 **Jeśli uruchamiasz to w CI, przeczytaj ten wiersz.** Kody wyjścia **nie**

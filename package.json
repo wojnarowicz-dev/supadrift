@@ -1,6 +1,6 @@
 {
   "name": "supadrift",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Compares the permissions your SQL migrations describe with the permissions actually in force in a Supabase database. Read only.",
   "keywords": [
     "supabase",
